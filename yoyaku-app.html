@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>予約管理アプリ</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #faf8f5; font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; min-height: 100vh; }
+.header { background: #1a1a2e; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; }
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #c8a96e, #e8c98a); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-title { color: #fff; font-size: 16px; font-weight: 700; }
+.header-sub { color: #c8a96e; font-size: 11px; }
+.badge { background: #c8a96e; color: #1a1a2e; border-radius: 20px; padding: 4px 12px; font-size: 13px; font-weight: 700; }
+.container { padding: 16px; max-width: 700px; margin: 0 auto; }
+.card { background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 16px; }
+.card-blue { background: #f0f4ff; border: 1px solid #c7d2fe; }
+.card-yellow { background: #fffbeb; border: 1px solid #fde68a; }
+.label { font-size: 13px; color: #666; margin-bottom: 8px; font-weight: 600; }
+.label-sm { font-size: 12px; color: #888; margin-bottom: 10px; font-weight: 600; }
+textarea { width: 100%; min-height: 120px; border: 1.5px solid #e8e4de; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.8; resize: vertical; outline: none; background: #faf8f5; color: #333; font-family: inherit; }
+input[type="text"], input[type="search"] { width: 100%; padding: 10px 12px; border: 1.5px solid #e8e4de; border-radius: 10px; font-size: 13px; outline: none; background: #faf8f5; font-family: inherit; }
+.btn { border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; padding: 13px; font-family: inherit; transition: all 0.2s; }
+.btn-dark { background: linear-gradient(135deg, #1a1a2e, #2d2d52); color: #fff; width: 100%; }
+.btn-dark:disabled { background: #ccc; cursor: not-allowed; }
+.btn-gold { background: linear-gradient(135deg, #c8a96e, #e8c98a); color: #1a1a2e; }
+.btn-green { background: linear-gradient(135deg, #2d7a4f, #3a9960); color: #fff; }
+.btn-blue { background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff; }
+.btn-indigo { background: #4f46e5; color: #fff; border-radius: 8px; padding: 7px 14px; font-size: 12px; }
+.btn-outline-indigo { background: #fff; color: #4f46e5; border: 1.5px solid #4f46e5; border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.tab-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.tab { flex: 1; padding: 11px 8px; border: none; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.07); font-family: inherit; }
+.tab-active { background: #1a1a2e; color: #c8a96e; }
+.tab-inactive { background: #fff; color: #888; }
+.table-header-dark { background: #1a1a2e; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 16px 16px 0 0; }
+.table-header-brown { background: #5a4a2e; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 16px 16px 0 0; }
+.table-title { color: #c8a96e; font-weight: 700; font-size: 14px; }
+.col-header { display: grid; grid-template-columns: 0.8fr 1.6fr 0.9fr 90px; background: #f5f2ed; padding: 7px 14px; font-size: 11px; color: #999; font-weight: 700; }
+.row { display: grid; grid-template-columns: 0.8fr 1.6fr 0.9fr 90px; padding: 11px 14px; align-items: center; }
+.row:not(:last-child) { border-bottom: 1px solid #f0ece6; }
+.row-even { background: #fff; }
+.row-odd { background: #fdfcfb; }
+.name-cell { font-size: 13px; font-weight: 600; color: #222; }
+.dt-cell { font-size: 12px; color: #444; line-height: 1.5; }
+.dt-cell-empty { font-size: 12px; color: #bbb; }
+.note-cell { font-size: 11px; color: #777; }
+.action-cell { display: flex; gap: 3px; justify-content: center; }
+.small-btn { border: none; border-radius: 6px; padding: 5px 7px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.edit-input { width: 90%; padding: 5px 7px; border: 1.5px solid #c8a96e; border-radius: 6px; font-size: 12px; outline: none; font-family: inherit; }
+.edit-row { display: grid; grid-template-columns: 0.8fr 1.6fr 0.9fr 90px; padding: 11px 14px; align-items: center; background: #fffbeb; border-bottom: 1px solid #f0ece6; }
+.edit-dt { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+.edit-dt input { padding: 5px 7px; border: 1.5px solid #c8a96e; border-radius: 6px; font-size: 12px; outline: none; font-family: inherit; }
+.suggest-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1.5px solid #e8e4de; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); z-index: 100; max-height: 200px; overflow-y: auto; margin-top: 4px; }
+.suggest-item { display: block; width: 100%; padding: 10px 14px; background: transparent; border: none; border-bottom: 1px solid #f0ece6; text-align: left; font-size: 13px; color: #333; cursor: pointer; font-family: inherit; }
+.suggest-item:hover { background: #faf8f5; }
+.copy-row { display: flex; gap: 8px; margin-top: 10px; }
+.copy-row .btn { flex: 1; font-size: 13px; }
+.hint { font-size: 11px; color: #aaa; margin-top: 6px; text-align: center; }
+.past-row { display: grid; grid-template-columns: 0.8fr 1.6fr 0.9fr 50px; padding: 9px 14px; align-items: center; background: #f9f9f9; }
+.past-row:not(:last-child) { border-bottom: 1px solid #f0ece6; }
+.past-name { font-size: 13px; color: #888; text-decoration: line-through; }
+.output-pre { background: #faf8f5; border: 1.5px solid #e8e4de; border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.9; margin: 0; white-space: pre-wrap; color: #333; font-family: inherit; }
+.backup-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.backup-label { font-size: 12px; color: #3730a3; font-weight: 700; margin-right: 4px; }
+.empty-msg { padding: 20px; text-align: center; color: #bbb; font-size: 13px; }
+.toggle-past { width: 100%; padding: 10px; background: transparent; border: 1.5px solid #ddd; border-radius: 10px; font-size: 12px; color: #aaa; cursor: pointer; margin-bottom: 12px; font-family: inherit; }
+.gas-status { font-size: 11px; color: #e53e3e; margin-left: 8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">📋</div>
+    <div>
+      <div class="header-title">予約管理アプリ</div>
+      <div class="header-sub">貼り付け → 確定・未確定を自動振り分け</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span id="save-status" style="font-size:11px;color:#c8a96e;"></span>
+    <span id="total-badge" class="badge" style="display:none;"></span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- バックアップ -->
+  <div class="card card-blue">
+    <div class="backup-row">
+      <span class="backup-label">💾 データ保存</span>
+      <button class="btn-indigo btn" onclick="exportData()">⬇️ バックアップ保存</button>
+      <label class="btn-outline-indigo">⬆️ データ読み込み<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+    </div>
+  </div>
+
+  <!-- 名前サジェスト -->
+  <div class="card" id="suggest-card" style="display:none;">
+    <div class="label">👤 過去の生徒名から追加</div>
+    <div style="position:relative;">
+      <input type="search" id="name-suggest-input" placeholder="名前を入力して検索..." oninput="onSuggestInput()" onfocus="showSuggest()" onblur="hideSuggestDelay()">
+      <div class="suggest-dropdown" id="suggest-dropdown" style="display:none;"></div>
+    </div>
+    <div class="hint">タップすると入力欄に追加 → 後ろに日時を書き足してください <span id="gas-status" class="gas-status"></span></div>
+  </div>
+
+  <!-- 入力 -->
+  <div class="card">
+    <div class="label">📨 転送されたテキストをそのまま貼り付け</div>
+    <textarea id="input-text" placeholder="例:&#10;永田 有希子様　4/14(火) 16:00〜17:30&#10;&#10;🟨【未確定予約希望】&#10;岩寺 恵美子様　4/25(土) 14:00〜15:30"></textarea>
+    <button class="btn btn-dark" style="margin-top:10px;" onclick="analyze()">✨ 自動で整理する</button>
+  </div>
+
+  <!-- タブ -->
+  <div class="tab-row" id="tab-row" style="display:none;">
+    <button class="tab tab-active" id="tab-confirmed" onclick="setTab('confirmed')">✅ 確定 (<span id="count-confirmed">0</span>件)</button>
+    <button class="tab tab-inactive" id="tab-unconfirmed" onclick="setTab('unconfirmed')">⏳ 未確定 (<span id="count-unconfirmed">0</span>件)</button>
+  </div>
+
+  <!-- 一覧テーブル -->
+  <div id="table-card" style="display:none;">
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;" id="list-card">
+      <div id="table-header"></div>
+      <div class="col-header">
+        <div>生徒名</div><div>日時</div><div>備考</div><div style="text-align:center;">操作</div>
+      </div>
+      <div id="list-body"></div>
+    </div>
+
+    <!-- 過去の予約 -->
+    <div id="past-section"></div>
+
+    <!-- コピー -->
+    <div class="card" id="copy-card" style="display:none;">
+      <div class="label-sm">📤 コピー</div>
+      <pre class="output-pre" id="output-text"></pre>
+      <div class="copy-row">
+        <button class="btn btn-gold" id="btn-line" onclick="copyLine()">📋 LINE送信用</button>
+        <button class="btn btn-dark" id="btn-reload" onclick="copyReload()">🔄 再読み込み用</button>
+      </div>
+      <div class="hint">🔄 再読み込み用 → 次回アプリに貼るとエラーなく読み込めます</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxatwEUVgXih6iXX3b0ItHWn0YjvqdZoMmxI3gF0kbYzm14a6SSOWhqdqzogOh7rccaqg/exec";
+const DAYS_JA = ["日","月","火","水","木","金","土"];
+const SECTION_MARKERS = ["未確定","要確認","仮予約","検討中","予約希望"];
+const UNCONFIRMED_MARKERS = ["未確定","要確認","仮予約","検討中"];
+
+let reservations = [];
+let gasNames = [];
+let currentTab = "confirmed";
+let editingId = null;
+
+// ---- 日付ユーティリティ ----
+function toDate(month, day) {
+  if (!month || !day) return null;
+  const now = new Date();
+  let year = new Date().getFullYear();
+  const d = new Date(year, month - 1, day);
+  if (d < new Date(now - 90 * 24 * 60 * 60 * 1000)) year++;
+  return new Date(year, month - 1, day);
+}
+function getDow(month, day) {
+  const d = toDate(month, day);
+  return d ? DAYS_JA[d.getDay()] : null;
+}
+function formatDatetime(r) {
+  if (!r.month || !r.day) return r.time || "日時不明";
+  const dow = getDow(r.month, r.day);
+  const timeStr = r.time ? (r.endTime ? " " + r.time + "〜" + r.endTime : " " + r.time) : "";
+  return r.month + "/" + r.day + "(" + dow + ")" + timeStr;
+}
+function formatCandidates(dates, time, endTime) {
+  if (!dates || !dates.length) return "日時不明";
+  const timeStr = time ? (endTime ? " " + time + "〜" + endTime : " " + time) : "";
+  return dates.map(({month, day}) => month + "/" + day + "(" + getDow(month, day) + ")").join("・") + timeStr;
+}
+function displayDatetime(r) {
+  if (!r.confirmed && r.candidateDates && r.candidateDates.length > 1)
+    return formatCandidates(r.candidateDates, r.time, r.endTime);
+  return formatDatetime(r);
+}
+function isPast(r) {
+  if (!r.confirmed && r.candidateDates && r.candidateDates.length > 0)
+    return r.candidateDates.every(({month, day}) => { const d = toDate(month, day); if (!d) return false; d.setHours(23,59,0,0); return d < new Date(); });
+  if (!r.month || !r.day) return false;
+  const d = toDate(r.month, r.day);
+  if (!d) return false;
+  if (r.time) { const [h,m] = r.time.split(":").map(Number); d.setHours(h, m, 0, 0); } else d.setHours(23,59,0,0);
+  return d < new Date();
+}
+function getFirstDate(r) {
+  if (!r.confirmed && r.candidateDates && r.candidateDates.length > 0)
+    return toDate(r.candidateDates[0].month, r.candidateDates[0].day);
+  return toDate(r.month, r.day);
+}
+function sortReservations(list) {
+  return [...list].sort((a, b) => {
+    const da = getFirstDate(a), db = getFirstDate(b);
+    if (!da && !db) return 0; if (!da) return 1; if (!db) return -1;
+    return da - db;
+  });
+}
+function withSama(name) {
+  if (!name) return "";
+  return name.replace(/様+$/, "").trim() + "様";
+}
+
+// ---- フォーマット ----
+function formatForLine(confirmed, unconfirmed) {
+  let text = "";
+  if (confirmed.length > 0) {
+    const lines = sortReservations(confirmed).map((r, i) =>
+      (i+1) + ". " + withSama(r.name) + "　" + formatDatetime(r) + (r.note ? "　" + r.note : ""));
+    text += "【予約確定】\n" + lines.join("\n");
+  }
+  if (unconfirmed.length > 0) {
+    const lines = sortReservations(unconfirmed).map((r, i) => {
+      const dt = r.candidateDates && r.candidateDates.length > 1 ? formatCandidates(r.candidateDates, r.time, r.endTime) : formatDatetime(r);
+      return (i+1) + ". " + withSama(r.name) + "　" + dt + (r.note ? "　" + r.note : "");
+    });
+    if (text) text += "\n\n";
+    text += "【要確認】\n" + lines.join("\n");
+  }
+  return text || "（予約なし）";
+}
+function formatForReload(confirmed, unconfirmed) {
+  let text = "";
+  if (confirmed.length > 0)
+    text += sortReservations(confirmed).map(r => withSama(r.name) + "　" + formatDatetime(r) + (r.note ? "　" + r.note : "")).join("\n");
+  if (unconfirmed.length > 0) {
+    const lines = sortReservations(unconfirmed).map(r => {
+      const dt = r.candidateDates && r.candidateDates.length > 1 ? formatCandidates(r.candidateDates, r.time, r.endTime) : formatDatetime(r);
+      return withSama(r.name) + "　" + dt + (r.note ? "　" + r.note : "");
+    });
+    if (text) text += "\n\n🟨【未確定予約希望】\n";
+    else text += "🟨【未確定予約希望】\n";
+    text += lines.join("\n");
+  }
+  return text || "（予約なし）";
+}
+
+// ---- テキスト解析 ----
+function parseText(text) {
+  const results = [];
+  const lines = text.split("\n");
+  let isUnconfirmed = false;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const isMarker = line.length < 30 && SECTION_MARKERS.some(kw => line.includes(kw));
+    if (isMarker) { isUnconfirmed = true; continue; }
+    if (!isUnconfirmed) {
+      const subs = line.split(/[・▶︎▸►]/).map(l => l.trim()).filter(Boolean);
+      const hasNames = subs.length > 1 && subs.every(s => {
+        const stripped = s.replace(/\d{1,2}[\/月]\d{1,2}(?:\([日月火水木金土]\))?/g, "").trim();
+        return /[^\d\/／(（【\s　]{2,}/.test(stripped);
+      });
+      if (hasNames) subs.forEach(s => parseLine(s, results, false));
+      else parseLine(line, results, false);
+    } else {
+      parseLine(line, results, true);
+    }
+  }
+  return results;
+}
+
+function parseLine(line, results, forceUnconfirmed) {
+  if (!line.trim() || line.length < 2) return;
+  const cleanLine = line.replace(/^\s*\d+[.\．]\s*/, "").replace(/^[.\s　・]+/, "").trim();
+
+  // カッコ備考抽出
+  const parenNotes = [];
+  const fullRe = /（([^）]+)）/g;
+  let fm;
+  while ((fm = fullRe.exec(cleanLine)) !== null) {
+    const inside = fm[1].trim();
+    if (/^[日月火水木金土]$/.test(inside) || /^\d+$/.test(inside) || /^[ぁ-ん]+$/.test(inside)) continue;
+    const ni = inside.replace(/\d+[.\．]\s*/g, "").trim();
+    if (ni) parenNotes.push(ni);
+  }
+  if (!parenNotes.length) {
+    const halfRe = /\(([^)]+)\)/g;
+    let hm;
+    while ((hm = halfRe.exec(cleanLine)) !== null) {
+      const inside = hm[1].trim();
+      if (/^[日月火水木金土]$/.test(inside) || /^\d+$/.test(inside) || /^[ぁ-ん]+$/.test(inside)) continue;
+      const ni = inside.replace(/\d+[.\．]\s*/g, "").trim();
+      if (ni) parenNotes.push(ni);
+    }
+  }
+
+  const lineNoParen = cleanLine.replace(/（[^）]+）/g, "").replace(/\([日月火水木金土]\)/g, "").trim();
+  const lineForName = lineNoParen.replace(/[（(][ぁ-んァ-ン　 ・ー]+[）)]/g, "").trim();
+
+  // 名前抽出
+  let name = null;
+  const p1 = lineForName.match(/([^\s　\d\/／【・]{1,6}[\s　][^\s　\d\/／【・]{1,8})\s*[様さんSan氏]/);
+  if (p1) name = p1[1].replace(/[\s　]+/g, " ").trim();
+  if (!name) { const p2 = lineForName.match(/([^\s　\d\/／【・]{3,8})\s*[様さんSan氏]/); if (p2) name = p2[1].trim(); }
+  if (!name) { const p3 = lineForName.match(/([^\s　\d\/／【・]{2,8})\s*(?:から|より|さんから|様から)/); if (p3) name = p3[1].trim(); }
+  if (!name) { const p4 = lineForName.match(/^([^\s　\d\/／【・、,]{2,8}?)[\s　]/); if (p4) name = p4[1].trim(); }
+  if (!name || name.length < 2) return;
+  name = name.replace(/様+$/, "").trim();
+
+  // 日付抽出
+  const mdRe = /(\d{1,2})[\/月](\d{1,2})(?:日)?(?:\([日月火水木金土]\))?/g;
+  const mdMatches = [...lineNoParen.matchAll(mdRe)];
+  const doRe = /(?<![\/\d])(\d{1,2})\(([日月火水木金土])\)/g;
+  const doMatches = [...lineNoParen.matchAll(doRe)];
+  let allDates = [...mdMatches];
+  if (doMatches.length > 0 && mdMatches.length > 0) {
+    const lastMonth = Number(mdMatches[mdMatches.length-1][1]);
+    for (const dm of doMatches) {
+      const day = Number(dm[1]);
+      if (!mdMatches.some(m => Number(m[2]) === day))
+        allDates.push({1: String(lastMonth), 2: dm[1], index: dm.index});
+    }
+    allDates.sort((a, b) => (a.index||0) - (b.index||0));
+  }
+
+  // 時刻抽出
+  const trm = lineNoParen.match(/(\d{1,2})[時:：](\d{2})?\s*[〜~\-－]\s*(\d{1,2})[時:：](\d{2})?/);
+  const tsm = !trm && lineNoParen.match(/(\d{1,2})[時:：](\d{2})?(?:あたり|頃|ごろ)?/);
+  let time = "", endTime = "";
+  if (trm) {
+    time = String(Number(trm[1])).padStart(2,"0") + ":" + (trm[2]||"00").padStart(2,"0");
+    endTime = String(Number(trm[3])).padStart(2,"0") + ":" + (trm[4]||"00").padStart(2,"0");
+  } else if (tsm) {
+    time = String(Number(tsm[1])).padStart(2,"0") + ":" + (tsm[2]||"00").padStart(2,"0");
+  }
+
+  // 備考抽出
+  let rem = lineNoParen
+    .replace(/([^\s　\d\/／【・]{1,6}[\s　][^\s　\d\/／【・]{1,8})\s*(?:様|さん|San|氏)(?=\s|$)/g, "")
+    .replace(/([^\s　\d\/／【・]{3,8})\s*(?:様|さん|San|氏)(?=\s|$)/g, "")
+    .replace(/(\d{1,2})[\/月](\d{1,2})(?:日)?(?:\([日月火水木金土]\))?/g, "")
+    .replace(/(\d{1,2})[時:：](\d{2})?\s*[〜~\-－]\s*(\d{1,2})[時:：](\d{2})?/g, "")
+    .replace(/(\d{1,2})[時:：](\d{2})?(?:あたり|頃|ごろ)?/g, "")
+    .replace(/\d+[.\．]\s*/g, "").replace(/[、。・\s　]+/g, " ").trim();
+  ["ご希望","様","から","より","あたり","頃","ごろ","全て","日時不明","いずれか","もしくは","の間"]
+    .forEach(w => rem = rem.split(w).join(" ").trim());
+  const isJunk = s => !s || /^\s*$/.test(s) || /^\s*\d+\s*$/.test(s);
+  const noteParts = [...parenNotes, rem.replace(/\s+/g," ").trim()].filter(s => !isJunk(s));
+  const note = noteParts.join(" ").trim();
+
+  const confirmed = !forceUnconfirmed && !UNCONFIRMED_MARKERS.some(kw => line.includes(kw));
+
+  if (!confirmed && allDates.length > 1) {
+    results.push({ id: uid(), name, month: Number(allDates[0][1]), day: Number(allDates[0][2]),
+      candidateDates: allDates.map(m => ({month: Number(m[1]), day: Number(m[2])})),
+      time, endTime, note, confirmed });
+  } else if (allDates.length > 1) {
+    allDates.forEach(m => results.push({ id: uid(), name, month: Number(m[1]), day: Number(m[2]), candidateDates: null, time, endTime, note, confirmed }));
+  } else if (allDates.length === 1) {
+    results.push({ id: uid(), name, month: Number(allDates[0][1]), day: Number(allDates[0][2]), candidateDates: null, time, endTime, note, confirmed });
+  } else {
+    results.push({ id: uid(), name, month: null, day: null, candidateDates: null, time, endTime, note, confirmed });
+  }
+}
+
+function uid() { return String(Date.now() + Math.random()); }
+
+// ---- GAS連携 ----
+async function loadNamesFromGAS() {
+  document.getElementById("gas-status").textContent = "名簿読み込み中...";
+  try {
+    const res = await fetch(GAS_URL + "?action=getNames");
+    const data = await res.json();
+    if (data.names) {
+      gasNames = data.names.map(n => n.name);
+      document.getElementById("gas-status").textContent = "";
+      renderSuggestCard();
+    }
+  } catch (e) {
+    document.getElementById("gas-status").textContent = "⚠️ 名簿の読み込み失敗";
+    setTimeout(() => document.getElementById("gas-status").textContent = "", 3000);
+  }
+}
+
+async function saveToGAS(list) {
+  try {
+    const confirmed = list.filter(r => r.confirmed && r.month && r.day);
+    if (!confirmed.length) return;
+    const payload = confirmed.map(r => ({ name: r.name, datetime: formatDatetime(r), note: r.note || "", confirmed: true }));
+    await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ action: "saveReservations", reservations: payload }) });
+  } catch (e) { console.error("GAS保存エラー:", e); }
+}
+
+// ---- ローカルストレージ ----
+function saveLocal(data) {
+  try { localStorage.setItem("yoyaku-v2", JSON.stringify(data)); } catch(e) {}
+}
+function loadLocal() {
+  try { const s = localStorage.getItem("yoyaku-v2"); return s ? JSON.parse(s) : []; } catch(e) { return []; }
+}
+
+// ---- 予約操作 ----
+function analyze() {
+  const text = document.getElementById("input-text").value;
+  if (!text.trim()) return;
+  const items = parseText(text);
+  if (!items.length) { alert("予約情報が見つかりませんでした。"); return; }
+  reservations = sortReservations([...reservations, ...items]);
+  saveLocal(reservations);
+  saveToGAS(reservations);
+  document.getElementById("input-text").value = "";
+  render();
+}
+
+function toggleConfirmed(id) {
+  reservations = reservations.map(r => r.id === id ? {...r, confirmed: !r.confirmed} : r);
+  saveLocal(reservations);
+  saveToGAS(reservations);
+  render();
+}
+
+function deleteRow(id) {
+  if (!confirm("削除しますか？")) return;
+  reservations = reservations.filter(r => r.id !== id);
+  saveLocal(reservations);
+  render();
+}
+
+function startEdit(id) {
+  editingId = id;
+  render();
+}
+
+function saveEdit(id) {
+  const r = reservations.find(r => r.id === id);
+  if (!r) return;
+  r.name = document.getElementById("edit-name-" + id).value;
+  r.month = Number(document.getElementById("edit-month-" + id).value) || null;
+  r.day = Number(document.getElementById("edit-day-" + id).value) || null;
+  r.time = document.getElementById("edit-time-" + id).value;
+  r.endTime = document.getElementById("edit-endtime-" + id).value;
+  r.note = document.getElementById("edit-note-" + id).value;
+  reservations = sortReservations(reservations);
+  editingId = null;
+  saveLocal(reservations);
+  render();
+}
+
+function cancelEdit() { editingId = null; render(); }
+
+function addRow() {
+  const id = uid();
+  reservations = sortReservations([...reservations, { id, name: "", month: null, day: null, candidateDates: null, time: "", endTime: "", note: "", confirmed: currentTab === "confirmed" }]);
+  editingId = id;
+  saveLocal(reservations);
+  render();
+}
+
+// ---- サジェスト ----
+function allPastNames() {
+  const local = reservations.map(r => r.name).filter(Boolean);
+  return [...new Set([...gasNames, ...local])].sort((a, b) => a.localeCompare(b, "ja"));
+}
+
+function renderSuggestCard() {
+  const names = allPastNames();
+  document.getElementById("suggest-card").style.display = names.length ? "" : "none";
+}
+
+function onSuggestInput() {
+  const val = document.getElementById("name-suggest-input").value;
+  const names = allPastNames().filter(n => !val.trim() || n.includes(val));
+  renderDropdown(names);
+}
+
+function showSuggest() {
+  const names = allPastNames();
+  renderDropdown(names);
+}
+
+function renderDropdown(names) {
+  const dd = document.getElementById("suggest-dropdown");
+  if (!names.length) { dd.style.display = "none"; return; }
+  dd.innerHTML = names.map(n =>
+    `<button class="suggest-item" onmousedown="selectName('${n}')">${n}様</button>`
+  ).join("");
+  dd.style.display = "";
+}
+
+function selectName(name) {
+  const ta = document.getElementById("input-text");
+  ta.value = ta.value ? ta.value + "\n" + name + "様　" : name + "様　";
+  document.getElementById("name-suggest-input").value = "";
+  document.getElementById("suggest-dropdown").style.display = "none";
+  ta.focus();
+}
+
+function hideSuggestDelay() {
+  setTimeout(() => { document.getElementById("suggest-dropdown").style.display = "none"; }, 200);
+}
+
+// ---- コピー ----
+function copyLine() {
+  const future = reservations.filter(r => !isPast(r));
+  const conf = sortReservations(future.filter(r => r.confirmed));
+  const unconf = sortReservations(future.filter(r => !r.confirmed));
+  navigator.clipboard.writeText(formatForLine(conf, unconf));
+  const btn = document.getElementById("btn-line");
+  btn.textContent = "✅ コピー完了"; btn.className = "btn btn-green";
+  setTimeout(() => { btn.textContent = "📋 LINE送信用"; btn.className = "btn btn-gold"; }, 2000);
+}
+
+function copyReload() {
+  const future = reservations.filter(r => !isPast(r));
+  const conf = sortReservations(future.filter(r => r.confirmed));
+  const unconf = sortReservations(future.filter(r => !r.confirmed));
+  navigator.clipboard.writeText(formatForReload(conf, unconf));
+  const btn = document.getElementById("btn-reload");
+  btn.textContent = "✅ コピー完了"; btn.className = "btn btn-blue";
+  setTimeout(() => { btn.textContent = "🔄 再読み込み用"; btn.className = "btn btn-dark"; }, 2000);
+}
+
+// ---- バックアップ ----
+function exportData() {
+  const blob = new Blob([JSON.stringify(reservations, null, 2)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "yoyaku-backup.json"; a.click();
+}
+
+function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (Array.isArray(data)) { reservations = sortReservations(data); saveLocal(reservations); render(); }
+    } catch { alert("ファイルの読み込みに失敗しました。"); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+}
+
+// ---- タブ ----
+function setTab(tab) {
+  currentTab = tab;
+  document.getElementById("tab-confirmed").className = "tab " + (tab === "confirmed" ? "tab-active" : "tab-inactive");
+  document.getElementById("tab-unconfirmed").className = "tab " + (tab === "unconfirmed" ? "tab-active" : "tab-inactive");
+  render();
+}
+
+// ---- 過去の予約 ----
+let showPast = false;
+
+// ---- レンダリング ----
+function render() {
+  const future = reservations.filter(r => !isPast(r));
+  const past = reservations.filter(r => isPast(r));
+  const conf = sortReservations(future.filter(r => r.confirmed));
+  const unconf = sortReservations(future.filter(r => !r.confirmed));
+  const current = currentTab === "confirmed" ? conf : unconf;
+
+  // バッジ
+  const badge = document.getElementById("total-badge");
+  badge.style.display = future.length ? "" : "none";
+  badge.textContent = "計" + future.length + "件";
+
+  // タブ
+  const tabRow = document.getElementById("tab-row");
+  tabRow.style.display = future.length ? "" : "none";
+  document.getElementById("count-confirmed").textContent = conf.length;
+  document.getElementById("count-unconfirmed").textContent = unconf.length;
+
+  // テーブル
+  const tableCard = document.getElementById("table-card");
+  tableCard.style.display = future.length ? "" : "none";
+
+  // ヘッダー
+  const isConf = currentTab === "confirmed";
+  document.getElementById("table-header").innerHTML = `
+    <div class="${isConf ? "table-header-dark" : "table-header-brown"}">
+      <div class="table-title">${isConf ? "✅ 確定済み予約" : "⏳ 未確定・要確認"}</div>
+      <button class="small-btn" style="background:#c8a96e;color:#1a1a2e;font-weight:700;" onclick="addRow()">＋ 追加</button>
+    </div>`;
+
+  // 本体
+  const body = document.getElementById("list-body");
+  if (!current.length) {
+    body.innerHTML = `<div class="empty-msg">${isConf ? "確定済みの予約はありません" : "未確定の予約はありません"}</div>`;
+  } else {
+    body.innerHTML = current.map((r, i) => {
+      const bg = i % 2 === 0 ? "#fff" : "#fdfcfb";
+      if (editingId === r.id) {
+        return `<div class="edit-row" style="background:${bg}">
+          <div><input id="edit-name-${r.id}" class="edit-input" value="${esc(r.name)}" list="past-names-list" placeholder="生徒名"></div>
+          <div class="edit-dt">
+            <input id="edit-month-${r.id}" style="width:32px;" class="edit-input" value="${r.month||""}" placeholder="月">
+            <span style="font-size:11px;">/</span>
+            <input id="edit-day-${r.id}" style="width:32px;" class="edit-input" value="${r.day||""}" placeholder="日">
+            <input id="edit-time-${r.id}" style="width:44px;" class="edit-input" value="${r.time||""}" placeholder="開始">
+            <span style="font-size:11px;">〜</span>
+            <input id="edit-endtime-${r.id}" style="width:44px;" class="edit-input" value="${r.endTime||""}" placeholder="終了">
+          </div>
+          <input id="edit-note-${r.id}" class="edit-input" value="${esc(r.note||"")}" placeholder="備考">
+          <div class="action-cell">
+            <button class="small-btn" style="background:#2d7a4f;color:#fff;" onclick="saveEdit('${r.id}')">✓</button>
+            <button class="small-btn" style="background:#999;color:#fff;" onclick="cancelEdit()">✕</button>
+          </div>
+        </div>`;
+      }
+      const dt = displayDatetime(r);
+      const dtClass = r.month ? "dt-cell" : "dt-cell-empty";
+      const toggleBg = r.confirmed ? "#e0f0e8" : "#fff3cd";
+      const toggleColor = r.confirmed ? "#2d7a4f" : "#856404";
+      return `<div class="row row-${i%2===0?"even":"odd"}" style="background:${bg}">
+        <div class="name-cell">${esc(r.name)||"—"}</div>
+        <div class="${dtClass}">${esc(dt)}</div>
+        <div class="note-cell">${esc(r.note||"")}</div>
+        <div class="action-cell">
+          <button class="small-btn" style="background:${toggleBg};color:${toggleColor};" onclick="toggleConfirmed('${r.id}')">${r.confirmed?"✅":"⏳"}</button>
+          <button class="small-btn" style="background:#e8c98a;color:#1a1a2e;" onclick="startEdit('${r.id}')">✏️</button>
+          <button class="small-btn" style="background:#fde8e8;color:#c53030;" onclick="deleteRow('${r.id}')">🗑</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  // datalist
+  const dl = document.getElementById("past-names-list") || document.createElement("datalist");
+  dl.id = "past-names-list";
+  dl.innerHTML = allPastNames().map(n => `<option value="${esc(n)}">`).join("");
+  if (!document.getElementById("past-names-list")) document.body.appendChild(dl);
+
+  // 過去の予約
+  const pastSection = document.getElementById("past-section");
+  if (!past.length) { pastSection.innerHTML = ""; }
+  else {
+    pastSection.innerHTML = `
+      <button class="toggle-past" onclick="togglePast()">
+        ${showPast ? "▲ 過去の予約を隠す" : "▼ 過去の予約を表示（" + past.length + "件）"}
+      </button>
+      ${showPast ? `<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;opacity:0.6;">
+        <div style="background:#888;padding:10px 16px;color:#fff;font-size:13px;font-weight:700;border-radius:16px 16px 0 0;">📁 過去の予約（${past.length}件）</div>
+        ${sortReservations(past).map((r, i) => `
+          <div class="past-row" style="${i<past.length-1?"border-bottom:1px solid #f0ece6":""}">
+            <div class="past-name">${esc(r.name)}</div>
+            <div style="font-size:12px;color:#aaa;">${esc(displayDatetime(r))}</div>
+            <div style="font-size:11px;color:#bbb;">${esc(r.note||"")}</div>
+            <button class="small-btn" style="background:#fde8e8;color:#c53030;" onclick="deleteRow('${r.id}')">🗑</button>
+          </div>`).join("")}
+      </div>` : ""}`;
+  }
+
+  // コピー
+  const copyCard = document.getElementById("copy-card");
+  copyCard.style.display = future.length ? "" : "none";
+  if (future.length) {
+    document.getElementById("output-text").textContent = formatForLine(conf, unconf);
+  }
+
+  // サジェスト
+  renderSuggestCard();
+}
+
+function togglePast() { showPast = !showPast; render(); }
+function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+// ---- 初期化 ----
+window.onload = () => {
+  reservations = loadLocal();
+  render();
+  loadNamesFromGAS();
+};
+</script>
+</body>
+</html>

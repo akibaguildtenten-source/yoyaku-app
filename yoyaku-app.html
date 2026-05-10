@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>予約管理アプリ</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -199,11 +202,29 @@ function getFirstDate(r) {
     return toDate(r.candidateDates[0].month, r.candidateDates[0].day);
   return toDate(r.month, r.day);
 }
+function normalizeTime(t) {
+  if (!t) return "9999";
+  const parts = t.split(":");
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1] || "0", 10);
+  // 数値に変換してから比較（文字列比較の罠を回避）
+  return h * 100 + m; // 例: 9:30→930, 16:00→1600
+}
 function sortReservations(list) {
   return [...list].sort((a, b) => {
     const da = getFirstDate(a), db = getFirstDate(b);
-    if (!da && !db) return 0; if (!da) return 1; if (!db) return -1;
-    return da - db;
+    if (!da && !db) {
+      // 日付なし同士は時刻順（数値比較）
+      return normalizeTime(a.time) - normalizeTime(b.time);
+    }
+    if (!da) return 1;
+    if (!db) return -1;
+    // 日付を数値比較（時刻なしで純粋な日付のみ）
+    const dayA = da.getFullYear() * 10000 + da.getMonth() * 100 + da.getDate();
+    const dayB = db.getFullYear() * 10000 + db.getMonth() * 100 + db.getDate();
+    if (dayA !== dayB) return dayA - dayB;
+    // 同日なら時刻順（数値比較）
+    return normalizeTime(a.time) - normalizeTime(b.time);
   });
 }
 function withSama(name) {

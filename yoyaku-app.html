@@ -39,7 +39,7 @@ input[type="text"], input[type="search"] { width: 100%; padding: 10px 12px; bord
 .table-header-dark { background: #1a1a2e; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 16px 16px 0 0; }
 .table-header-brown { background: #5a4a2e; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 16px 16px 0 0; }
 .table-title { color: #c8a96e; font-weight: 700; font-size: 14px; }
-.col-header { display: grid; grid-template-columns: 0.8fr 1.6fr 0.9fr 90px; background: #f5f2ed; padding: 7px 14px; font-size: 11px; color: #999; font-weight: 700; }
+.col-header { display: grid; grid-template-columns: 1.4fr 0.9fr 0.9fr 90px; background: #f5f2ed; padding: 7px 14px; font-size: 11px; color: #999; font-weight: 700; }
 .row { display: grid; grid-template-columns: 0.8fr 1.6fr 0.9fr 90px; padding: 11px 14px; align-items: center; }
 .row:not(:last-child) { border-bottom: 1px solid #f0ece6; }
 .row-even { background: #fff; }
@@ -126,7 +126,7 @@ input[type="text"], input[type="search"] { width: 100%; padding: 10px 12px; bord
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;" id="list-card">
       <div id="table-header"></div>
       <div class="col-header">
-        <div>生徒名</div><div>日時</div><div>備考</div><div style="text-align:center;">操作</div>
+        <div>日時</div><div>生徒名</div><div>備考</div><div style="text-align:center;">操作</div>
       </div>
       <div id="list-body"></div>
     </div>
@@ -237,13 +237,13 @@ function formatForLine(confirmed, unconfirmed) {
   let text = "";
   if (confirmed.length > 0) {
     const lines = sortReservations(confirmed).map((r, i) =>
-      (i+1) + ". " + withSama(r.name) + "　" + formatDatetime(r) + (r.note ? "　" + r.note : ""));
+      (i+1) + ". " + formatDatetime(r) + "　" + withSama(r.name) + (r.note ? "　" + r.note : ""));
     text += "【予約確定】\n" + lines.join("\n");
   }
   if (unconfirmed.length > 0) {
     const lines = sortReservations(unconfirmed).map((r, i) => {
       const dt = r.candidateDates && r.candidateDates.length > 1 ? formatCandidates(r.candidateDates, r.time, r.endTime) : formatDatetime(r);
-      return (i+1) + ". " + withSama(r.name) + "　" + dt + (r.note ? "　" + r.note : "");
+      return (i+1) + ". " + dt + "　" + withSama(r.name) + (r.note ? "　" + r.note : "");
     });
     if (text) text += "\n\n";
     text += "【要確認】\n" + lines.join("\n");
@@ -253,11 +253,11 @@ function formatForLine(confirmed, unconfirmed) {
 function formatForReload(confirmed, unconfirmed) {
   let text = "";
   if (confirmed.length > 0)
-    text += sortReservations(confirmed).map(r => withSama(r.name) + "　" + formatDatetime(r) + (r.note ? "　" + r.note : "")).join("\n");
+    text += sortReservations(confirmed).map(r => formatDatetime(r) + "　" + withSama(r.name) + (r.note ? "　" + r.note : "")).join("\n");
   if (unconfirmed.length > 0) {
     const lines = sortReservations(unconfirmed).map(r => {
       const dt = r.candidateDates && r.candidateDates.length > 1 ? formatCandidates(r.candidateDates, r.time, r.endTime) : formatDatetime(r);
-      return withSama(r.name) + "　" + dt + (r.note ? "　" + r.note : "");
+      return dt + "　" + withSama(r.name) + (r.note ? "　" + r.note : "");
     });
     if (text) text += "\n\n🟨【未確定予約希望】\n";
     else text += "🟨【未確定予約希望】\n";
@@ -421,6 +421,30 @@ function loadLocal() {
   try { const s = localStorage.getItem("yoyaku-v2"); return s ? JSON.parse(s) : []; } catch(e) { return []; }
 }
 
+// ---- GASデータ同期 ----
+async function saveAllToGAS(data) {
+  try {
+    await fetch(GAS_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "saveAllData", reservations: data }),
+    });
+  } catch(e) { console.error("GAS全保存エラー:", e); }
+}
+
+async function loadFromGAS() {
+  try {
+    const res = await fetch(GAS_URL + "?action=getData");
+    const data = await res.json();
+    if (data.reservations && data.reservations.length > 0) {
+      return data.reservations;
+    }
+    return null;
+  } catch(e) {
+    console.error("GAS読み込みエラー:", e);
+    return null;
+  }
+}
+
 // ---- 予約操作 ----
 function analyze() {
   const text = document.getElementById("input-text").value;
@@ -445,6 +469,7 @@ function deleteRow(id) {
   if (!confirm("削除しますか？")) return;
   reservations = reservations.filter(r => r.id !== id);
   saveLocal(reservations);
+  saveAllToGAS(reservations);
   render();
 }
 
@@ -465,6 +490,7 @@ function saveEdit(id) {
   reservations = sortReservations(reservations);
   editingId = null;
   saveLocal(reservations);
+  saveAllToGAS(reservations);
   render();
 }
 
@@ -634,8 +660,8 @@ function render() {
       const toggleBg = r.confirmed ? "#e0f0e8" : "#fff3cd";
       const toggleColor = r.confirmed ? "#2d7a4f" : "#856404";
       return `<div class="row row-${i%2===0?"even":"odd"}" style="background:${bg}">
-        <div class="name-cell">${esc(r.name)||"—"}</div>
         <div class="${dtClass}">${esc(dt)}</div>
+        <div class="name-cell">${esc(r.name)||"—"}</div>
         <div class="note-cell">${esc(r.note||"")}</div>
         <div class="action-cell">
           <button class="small-btn" style="background:${toggleBg};color:${toggleColor};" onclick="toggleConfirmed('${r.id}')">${r.confirmed?"✅":"⏳"}</button>
@@ -664,8 +690,8 @@ function render() {
         <div style="background:#888;padding:10px 16px;color:#fff;font-size:13px;font-weight:700;border-radius:16px 16px 0 0;">📁 過去の予約（${past.length}件）</div>
         ${sortReservations(past).map((r, i) => `
           <div class="past-row" style="${i<past.length-1?"border-bottom:1px solid #f0ece6":""}">
-            <div class="past-name">${esc(r.name)}</div>
             <div style="font-size:12px;color:#aaa;">${esc(displayDatetime(r))}</div>
+            <div class="past-name">${esc(r.name)}</div>
             <div style="font-size:11px;color:#bbb;">${esc(r.note||"")}</div>
             <button class="small-btn" style="background:#fde8e8;color:#c53030;" onclick="deleteRow('${r.id}')">🗑</button>
           </div>`).join("")}
@@ -687,9 +713,19 @@ function togglePast() { showPast = !showPast; render(); }
 function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 // ---- 初期化 ----
-window.onload = () => {
+window.onload = async () => {
+  // まずローカルを表示（速い）
   reservations = loadLocal();
   render();
+  // GASから最新データを取得（どのブラウザでも同期）
+  document.getElementById("gas-status").textContent = "同期中...";
+  const gasData = await loadFromGAS();
+  if (gasData && gasData.length >= reservations.length) {
+    reservations = sortReservations(gasData);
+    saveLocal(reservations);
+    render();
+  }
+  document.getElementById("gas-status").textContent = "";
   loadNamesFromGAS();
 };
 </script>

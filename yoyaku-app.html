@@ -95,6 +95,7 @@ input[type="text"], input[type="search"] { width: 100%; padding: 10px 12px; bord
       <span class="backup-label">💾 データ保存</span>
       <button class="btn-indigo btn" onclick="exportData()">⬇️ バックアップ保存</button>
       <label class="btn-outline-indigo">⬆️ データ読み込み<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+      <button class="btn-outline-indigo" onclick="forceReload()" id="reload-btn">🔄 最新版に更新</button>
     </div>
   </div>
 
@@ -233,21 +234,78 @@ function withSama(name) {
 }
 
 // ---- フォーマット ----
+function formatTimeOnly(r) {
+  if (!r.time) return "";
+  return r.endTime ? r.time + "〜" + r.endTime : r.time;
+}
+
 function formatForLine(confirmed, unconfirmed) {
   let text = "";
+
+  // ---- 確定予約 ----
   if (confirmed.length > 0) {
-    const lines = sortReservations(confirmed).map((r, i) =>
-      (i+1) + ". " + formatDatetime(r) + "　" + withSama(r.name) + (r.note ? "　" + r.note : ""));
+    const sorted = sortReservations(confirmed);
+    let currentDay = null;
+    let currentMonth = null;
+    const lines = [];
+
+    for (const r of sorted) {
+      if (!r.month || !r.day) continue;
+      const dow = getDow(r.month, r.day);
+
+      // 月が変わったら区切りを入れる
+      if (currentMonth !== null && r.month !== currentMonth) {
+        lines.push("");
+        lines.push("--- " + r.month + "月 ---");
+        lines.push("");
+      }
+      currentMonth = r.month;
+
+      const dayKey = r.month + "/" + r.day;
+
+      // 日付が変わったら日付行を追加
+      if (currentDay !== dayKey) {
+        if (currentDay !== null) lines.push("");
+        lines.push(r.month + "/" + r.day + "(" + dow + ")");
+        currentDay = dayKey;
+      }
+
+      // 時間＋名前＋備考
+      const timeStr = formatTimeOnly(r);
+      const nameStr = r.name || "";
+      const noteStr = r.note ? "(" + r.note + ")" : "";
+      lines.push("・" + (timeStr ? timeStr + "　" : "") + nameStr + noteStr);
+    }
+
+    // 日時不明の予約を最後に追加
+    const noDate = sorted.filter(r => !r.month || !r.day);
+    if (noDate.length > 0) {
+      if (lines.length > 0) lines.push("");
+      lines.push("【日時未定】");
+      for (const r of noDate) {
+        const nameStr = r.name || "";
+        const noteStr = r.note ? "(" + r.note + ")" : "";
+        lines.push("・" + nameStr + noteStr);
+      }
+    }
+
     text += "【予約確定】\n" + lines.join("\n");
   }
+
+  // ---- 未確定予約 ----
   if (unconfirmed.length > 0) {
-    const lines = sortReservations(unconfirmed).map((r, i) => {
-      const dt = r.candidateDates && r.candidateDates.length > 1 ? formatCandidates(r.candidateDates, r.time, r.endTime) : formatDatetime(r);
-      return (i+1) + ". " + dt + "　" + withSama(r.name) + (r.note ? "　" + r.note : "");
+    const lines = sortReservations(unconfirmed).map(r => {
+      const dt = r.candidateDates && r.candidateDates.length > 1
+        ? formatCandidates(r.candidateDates, r.time, r.endTime)
+        : formatDatetime(r);
+      const nameStr = r.name || "";
+      const noteStr = r.note ? "(" + r.note + ")" : "";
+      return "・" + dt + "　" + nameStr + noteStr;
     });
     if (text) text += "\n\n";
     text += "【要確認】\n" + lines.join("\n");
   }
+
   return text || "（予約なし）";
 }
 function formatForReload(confirmed, unconfirmed) {
@@ -421,6 +479,29 @@ function loadLocal() {
   try { const s = localStorage.getItem("yoyaku-v2"); return s ? JSON.parse(s) : []; } catch(e) { return []; }
 }
 
+// ---- カレンダー連携 ----
+async function addToCalendar(r) {
+  try {
+    const res = await fetch(GAS_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "addCalendar", reservation: r }),
+    });
+    const data = await res.json();
+    if (data.calendarEventId) return data.calendarEventId;
+    return null;
+  } catch(e) { console.error("カレンダー追加エラー:", e); return null; }
+}
+
+async function deleteFromCalendar(calendarEventId) {
+  if (!calendarEventId) return;
+  try {
+    await fetch(GAS_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "deleteCalendar", calendarEventId }),
+    });
+  } catch(e) { console.error("カレンダー削除エラー:", e); }
+}
+
 // ---- GASデータ同期 ----
 async function saveAllToGAS(data) {
   try {
@@ -465,8 +546,12 @@ function toggleConfirmed(id) {
   render();
 }
 
-function deleteRow(id) {
+async function deleteRow(id) {
   if (!confirm("削除しますか？")) return;
+  const target = reservations.find(r => r.id === id);
+  if (target && target.calendarEventId) {
+    await deleteFromCalendar(target.calendarEventId);
+  }
   reservations = reservations.filter(r => r.id !== id);
   saveLocal(reservations);
   saveAllToGAS(reservations);
@@ -566,6 +651,15 @@ function copyReload() {
   const btn = document.getElementById("btn-reload");
   btn.textContent = "✅ コピー完了"; btn.className = "btn btn-blue";
   setTimeout(() => { btn.textContent = "🔄 再読み込み用"; btn.className = "btn btn-dark"; }, 2000);
+}
+
+// ---- 強制更新 ----
+function forceReload() {
+  const btn = document.getElementById("reload-btn");
+  btn.textContent = "更新中...";
+  // キャッシュを無視して最新版を読み込む
+  const url = location.href.split("?")[0] + "?v=" + Date.now();
+  location.replace(url);
 }
 
 // ---- バックアップ ----
